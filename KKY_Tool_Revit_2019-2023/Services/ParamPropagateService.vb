@@ -1098,6 +1098,7 @@ Namespace Services
             Dim famDoc As Document = Nothing
             Dim ok As Boolean = True
             Dim localAdded As Integer = 0
+            Dim localSkipAssoc As Integer = 0
 
             Try
                 famDoc = projDoc.EditFamily(fam)
@@ -1182,17 +1183,17 @@ Namespace Services
                                     Dim p As Parameter = TryGetElementParameterByName(fi, name)
                                     If p Is Nothing Then
                                         ' 인스턴스에 파라미터가 없어서 스킵: 건수만 카운트
-                                        skipTotal += 1
+                                        localSkipAssoc += 1
                                         Continue For
                                     End If
                                     If p.IsReadOnly Then
                                         ' 읽기 전용이라 스킵: 건수만 카운트
-                                        skipTotal += 1
+                                        localSkipAssoc += 1
                                         Continue For
                                     End If
                                     If Not famDoc.FamilyManager.CanElementParameterBeAssociated(p) Then
                                         ' 연동 불가라 스킵: 건수만 카운트
-                                        skipTotal += 1
+                                        localSkipAssoc += 1
                                         Continue For
                                     End If
 
@@ -1222,12 +1223,17 @@ Namespace Services
 
                     ' 3) 연동 검증 (그래프상의 자식만 대상으로)
                     Dim v = VerifyAssociations(famDoc, hostParams, paramNames, excludeDummy, childrenOfHost)
-                    verifyOk += v.Ok : verifyFail += v.Fail : skipTotal += v.Skip
+                    verifyOk += v.Ok : verifyFail += v.Fail
+
+                    Dim hasAnySuccess As Boolean = (v.Ok > 0)
+                    Dim localSkipTotal As Integer = localSkipAssoc + v.Skip
+
+                    If Not hasAnySuccess Then
+                        skipTotal += localSkipTotal
+                    End If
 
                     ' 패밀리 안에서 한 번이라도 연동이 성공했다면
                     ' 상위 "Error / Skip 목록"에는 올리지 않는다 (부분 실패는 숫자 카운트로만 유지)
-                    Dim hasAnySuccess As Boolean = (v.Ok > 0)
-
                     If v.FailItems IsNot Nothing AndAlso v.FailItems.Count > 0 AndAlso Not hasAnySuccess Then
                         ok = False
                         parentFails.Add(famName)
